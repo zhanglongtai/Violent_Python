@@ -1,4 +1,9 @@
 from _winreg import *
+import mechanize
+import urllib
+import re
+import urlparse
+import optparse
 
 
 def val2addr(val):
@@ -7,6 +12,27 @@ def val2addr(val):
         addr += "%02x " % ord(ch)
         addr = addr.strip(" ").replace(" ", ":")[0:17]
     return addr
+
+
+def wiglePrint(username, password, netid):
+    browser = mechanize.Browser()
+    browser.open('https://wigle.net')
+    reqData = urllib.urlencode({'credential_0': username, 'credential_0': password})
+    browser.open('https://wigle.net/gps/gps/main/login', reqData)
+    params = {}
+    params['netid'] = netid
+    reqParams = urllib.urlencode(params)
+    respURL = 'http://wigle.net/gps/gps/main/confirmquery/'
+    resp = browser.open(respURL, reqParams).read()
+    mapLat = 'N/A'
+    mapLon = 'N/A'
+    rLat = re.findall(r'maplat=.*\&', resp)
+    if rLat:
+        mapLat = rLat[0].split('&')[0].split('=')[1]
+    rLon = re.findall(r'maplon=.*\&', resp)
+    if rLon:
+        mapLon = rLon[0].split('&')[0].split('=')[1]
+    print '[-] Lat: ' + mapLat + 'Lon: ' + mapLon
 
 
 def printNets():
@@ -22,13 +48,27 @@ def printNets():
             macAddr = val2addr(addr)
             netName = str(name)
             print '[+] ' + netName + ' ' + macAddr
+            wiglePrint(username, password, macAddr)
             CloseKey(netKey)
         except:
             break
 
 
 def main():
-    printNets()
+    parser = optparse.OptionParser(
+        'usage %prog' + ' -u <wigle username> -p <wigle password>')
+    parser.add_option('-u', dest='username', type='string',
+                      help='specify wigle username')
+    parser.add_option('-p', dest='password', type='string',
+                      help='specify wigle password')
+    (options, args) = parser.parse_args()
+    username = options.username
+    password = options.password
+    if username is None or password is None:
+        print parser.usage
+        exit(0)
+    else:
+        printNets(username, password)
 
 
 if __name__ == '__main__':
